@@ -713,11 +713,11 @@ class Aka(callbacks.Plugin):
     importaliasdatabase = wrap(importaliasdatabase, ['owner'])
 
     def list(self, irc, msg, args, optlist):
-        """[--channel <#channel>] [--keys]
+        """[--channel <#channel>] [--cmds]
 
         Lists all Akas defined for <channel>. If <channel> is not specified,
-        lists all global Akas. If --keys is given, lists only the Aka names
-        and not their commands."""
+        lists all global Akas. If --cmds is given, lists Aka command
+        definitions as well as names."""
         channel = 'global'
         for (option, arg) in optlist:
             if option == 'channel':
@@ -727,7 +727,7 @@ class Aka(callbacks.Plugin):
                 channel = arg
         aka_list = self._db.get_aka_list(channel)
         if aka_list:
-            if 'keys' in dict(optlist):
+            if 'cmds' not in dict(optlist):
                 # Strange, aka_list is a list of one length tuples
                 s = [k[0] for k in aka_list]
             else:
