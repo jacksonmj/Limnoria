@@ -160,6 +160,12 @@ class ChannelTestCase(ChannelPluginTestCase):
         self.failUnless(m.command == 'MODE' and
                         m.args == (self.channel, '+v', 'bar'))
 
+    def testMode(self):
+        self.irc.feedMsg(ircmsgs.op(self.channel, self.nick))
+        m = self.getMsg('mode %s +c-c+c-c+c' % self.channel)
+        self.failUnless(m.command == 'MODE' and
+                        m.args == (self.channel, '-c+c'))
+
     def assertKban(self, query, hostmask, **kwargs):
         m = self.getMsg(query, **kwargs)
         self.assertEqual(m, ircmsgs.ban(self.channel, hostmask))

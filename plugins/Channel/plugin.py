@@ -91,6 +91,17 @@ class Channel(callbacks.Plugin):
         <channel> is only necessary if the message isn't sent in the channel
         itself.
         """
+
+        # Deduplicate channel modes (only keep the last instance of each
+        # mode+argument)
+        # e.g. +c-c+c-c+c -> -c+c
+        modesList = ircutils.separateModes(modes)
+        L = []
+        for m in reversed(modesList):
+            if not m in L:
+                L.append(m)
+        modes = ircutils.joinModes(reversed(L))
+
         self._sendMsg(irc, ircmsgs.mode(channel, modes))
     mode = wrap(mode, ['op', ('haveHalfop+', _('change the mode')), many('something')])
 
