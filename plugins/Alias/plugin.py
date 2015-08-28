@@ -324,7 +324,8 @@ class Alias(callbacks.Plugin):
         self.aliasRegistryNode(name).locked.setValue(value)
 
     def isValidName(self, name):
-        if not re.search(self.registryValue('validName'), name):
+        r = self.registryValue('validName')
+        if r and not r.search(name):
             return False
         if not registry.isValidRegistryName(name):
             return False
