@@ -616,7 +616,6 @@ class Regexp(Value):
     """Value must be a valid regular expression."""
     errormsg = _('Value must be a valid regular expression, not %r.')
     def __init__(self, *args, **kwargs):
-        kwargs['setDefault'] = False
         self.sr = ''
         self.value = None
         self.__parent = super(Regexp, self)
@@ -644,6 +643,8 @@ class Regexp(Value):
         elif sr is not None:
             self.sr = sr
             self.__parent.setValue(v)
+        elif isinstance(v, minisix.string_types):
+            self.set(v)
         else:
             raise InvalidRegistryValue('Can\'t setValue a regexp, there would be an inconsistency '\
                   'between the regexp and the recorded string value.')
