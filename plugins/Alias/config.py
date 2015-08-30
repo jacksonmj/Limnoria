@@ -46,4 +46,6 @@ conf.registerGroup(Alias, 'escapedaliases')
 conf.registerGlobalValue(Alias, 'validName',
     registry.Regexp(r'/^[^\x00-\x20]+$/', _("""Regex which alias names must match in order to be valid""")))
 
+conf.registerGroup_badInput(Alias)
+
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:

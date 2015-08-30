@@ -248,6 +248,9 @@ class Seen(callbacks.Plugin):
         if name and ircutils.strEqual(name, irc.nick):
             irc.reply(_("You've found me!"))
             return
+        if self.isBadInput(name):
+            if self.doBadInputResponse(irc, msg):
+                return
         self._checkChannelPresence(irc, channel, msg.nick, True)
         self._seen(irc, channel, name)
     seen = wrap(seen, ['channel', 'something'])
@@ -266,6 +269,9 @@ class Seen(callbacks.Plugin):
         if name and ircutils.strEqual(name, irc.nick):
             irc.reply(_("You've found me!"))
             return
+        if self.isBadInput(name):
+            if self.doBadInputResponse(irc, msg):
+                return
         self._checkChannelPresence(irc, channel, msg.nick, True)
         if name and optlist:
             raise callbacks.ArgumentError

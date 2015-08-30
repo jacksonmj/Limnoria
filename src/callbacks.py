@@ -1412,6 +1412,72 @@ class PluginMixin(BasePlugin, irclib.IrcCallback):
         else:
             return None
 
+    def isBadInput(self, data, channel=None):
+        plugin = self.name()
+        pluginGroup = conf.supybot.plugins.get(plugin)
+        if hasattr(pluginGroup, 'badInput') and \
+          hasattr(pluginGroup.badInput, 'regexp'):
+            if channel:
+                r = self.registryValue('badInput.regexp', channel)
+                if r and r.search(data):
+                    return True
+            r = self.registryValue('badInput.regexp')
+            if r and r.search(data):
+                return True
+
+        if channel:
+            r = conf.supybot.abuse.badInput.regexp.get(channel)
+            if r and r.search(data):
+                return True
+        r = conf.supybot.abuse.badInput.regexp()
+        if r and r.search(data):
+            return True
+
+        return False
+
+    def getBadInputConfigValue(self, name, channel=None):
+        plugin = self.name()
+        pluginGroup = conf.supybot.plugins.get(plugin)
+        if hasattr(pluginGroup, 'badInput') and \
+          hasattr(pluginGroup.badInput, name):
+            v = getattr(pluginGroup.badInput, name)
+            if channel and v.get(channel):
+                return v.get(channel)
+            elif v():
+                return v()
+
+        v = conf.supybot.abuse.badInput.get(name)
+        if v:
+            if channel and v.get(channel):
+                return v.get(channel)
+            elif v:
+                return v
+
+        return None
+
+    def doBadInputResponse(self, irc, msg):
+        channel = None
+        if irc.isChannel(msg.args[0]):
+            channel = msg.args[0]
+        action = str(self.getBadInputConfigValue('response', channel))
+        opts = str(self.getBadInputConfigValue('responseOpts', channel))
+
+        if action == 'reply':
+            irc.reply(opts)
+            return True
+        elif action == 'error':
+            irc.error(opts)
+            return True
+        elif action == 'kick':
+            if channel:
+                irc.queueMsg(ircmsgs.kick(channel, msg.nick, opts))
+            irc.noReply()
+            return True
+
+        return False
+
+
+
 class Plugin(PluginMixin, Commands):
     pass
 Privmsg = Plugin # Backwards compatibility.

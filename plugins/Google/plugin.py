@@ -162,6 +162,9 @@ class Google(callbacks.PluginRegexp):
         If option --snippet is given, returns also the page text snippet.
         """
         opts = dict(opts)
+        if self.isBadInput(text):
+            if self.doBadInputResponse(irc, msg):
+                return
         data = self.search(text, msg.args[0], {'smallsearch': True})
         if data['responseData']['results']:
             url = data['responseData']['results'][0]['unescapedUrl']
@@ -187,6 +190,9 @@ class Google(callbacks.PluginRegexp):
         if 'language' in optlist and optlist['language'].lower() not in \
            conf.supybot.plugins.Google.safesearch.validStrings:
             irc.errorInvalid('language')
+        if self.isBadInput(text):
+            if self.doBadInputResponse(irc, msg):
+                return
         data = self.search(text, msg.args[0], dict(optlist))
         bold = self.registryValue('bold', msg.args[0])
         max = self.registryValue('maximumResults', msg.args[0])
@@ -227,6 +233,9 @@ class Google(callbacks.PluginRegexp):
         channel = msg.args[0]
         results = []
         for arg in args:
+            if self.isBadInput(arg):
+                if self.doBadInputResponse(irc, msg):
+                    return
             data = self.search(arg, channel, {'smallsearch': True})
             count = data['responseData']['cursor'].get('estimatedResultCount',
                                                        0)

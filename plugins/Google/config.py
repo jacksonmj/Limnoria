@@ -128,4 +128,6 @@ conf.registerChannelValue(Google, 'searchFilter',
     by default.  'active' - most filtering, 'moderate' - default filtering,
     'off' - no filtering""")))
 
+conf.registerGroup_badInput(Google)
+
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:

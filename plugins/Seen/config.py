@@ -54,5 +54,6 @@ conf.registerChannelValue(Seen, 'showLastMessage',
     be displayed with @seen. Useful for keeping messages from a channel
     private.""")))
 
+conf.registerGroup_badInput(Seen)
 
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:

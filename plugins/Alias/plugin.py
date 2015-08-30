@@ -414,6 +414,14 @@ class Alias(callbacks.Plugin):
         if ' ' not in alias:
             # If it's a single word, they probably want $*.
             alias += ' $*'
+
+        if self.isBadInput(name) or self.isBadInput(alias):
+            action = self.getBadInputConfigValue('response')
+            if action == 'insult':
+                alias = _("""rainbow %s is a derp""") % msg.nick
+            elif self.doBadInputResponse(irc, msg, args):
+                return
+
         try:
             self.addAlias(irc, name, alias)
             self.log.info('Adding alias %q for %q (from %s)',

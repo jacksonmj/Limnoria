@@ -749,6 +749,24 @@ registerGlobalValue(supybot.abuse.flood.command.invalid, 'notify',
     that they're being ignored for invalid command flooding.""")))
 
 
+class ValidBadInputResponse(registry.OnlySomeStrings):
+    validStrings = ('', 'reply', 'error', 'kick')
+
+def registerGroup_badInput(group):
+    registerGroup(group, 'badInput')
+    registerChannelValue(group.badInput, 'regexp',
+        registry.Regexp(None, _("""Regexp to match input which should be
+        rejected"""), private=True))
+    registerChannelValue(group.badInput, 'response',
+        ValidBadInputResponse('', _("""Action to take in response to
+        rejected input""")))
+    registerChannelValue(group.badInput, 'responseOpts',
+        registry.String(_("""Invalid input."""), _("""Reply/error/kick message
+        for rejected input""")))
+
+registerGroup_badInput(supybot.abuse)
+
+
 ###
 # supybot.drivers.  For stuff relating to Supybot's drivers (duh!)
 ###
