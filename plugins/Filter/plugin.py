@@ -295,8 +295,8 @@ class Filter(callbacks.Plugin):
         irc.reply(text)
     supa1337 = wrap(supa1337, ['text'])
 
-    _scrambleRe = re.compile(r'(?:\b|(?![a-zA-Z]))([a-zA-Z])([a-zA-Z]*)'
-                             r'([a-zA-Z])(?:\b|(?![a-zA-Z]))')
+    _scrambleRe = re.compile(r'{boundary}({c})({c}*)({c}){boundary}'.format(
+        boundary=r'(?:\b|(?![a-z0-9]))', c=r'[a-z0-9]'), re.I)
     @internationalizeDocstring
     def scramble(self, irc, msg, args, text):
         """<text>
