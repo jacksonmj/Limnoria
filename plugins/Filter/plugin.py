@@ -40,6 +40,7 @@ import supybot.conf as conf
 import supybot.utils as utils
 from supybot.commands import *
 import supybot.utils.minisix as minisix
+from supybot.utils.minisix import u
 import supybot.ircmsgs as ircmsgs
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
@@ -400,13 +401,22 @@ class Filter(callbacks.Plugin):
     reverse = wrap(reverse, ['text'])
 
     @internationalizeDocstring
-    def _color(self, c, fg=None):
+    def _color(self, c, fg=None, bg=None):
         if c == ' ':
             return c
         if fg is None:
             fg = random.randint(2, 15)
         fg = str(fg).zfill(2)
-        return '\x03%s%s' % (fg, c)
+        if bg is None:
+            if c == ',':
+                # Prevent commas being interpreted as part of a color code
+                #  (possible alternative: \x03{fg}\x03{c} ?)
+                return '\x03%s%s%s' % (fg, u('\u200b'), c)
+            else:
+                return '\x03%s%s' % (fg, c)
+        else:
+            bg = str(bg).zfill(2)
+            return '\x03%s,%s%s' % (fg, bg, c)
 
     @internationalizeDocstring
     def colorize(self, irc, msg, args, text):
