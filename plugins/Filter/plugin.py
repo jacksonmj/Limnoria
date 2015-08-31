@@ -79,7 +79,7 @@ class Filter(callbacks.Plugin):
                     msg = ircmsgs.IrcMsg(msg=msg, args=(msg.args[0], s))
         return msg
 
-    _filterCommands = ['jeffk', 'leet', 'rot13', 'hexlify', 'binary',
+    _filterCommands = ['jeffk', 'leet', 'rot13', 'hexlify', 'binary', 'lithp',
                        'scramble', 'morse', 'reverse', 'colorize', 'squish',
                        'supa1337', 'stripcolor', 'aol', 'rainbow', 'spellit',
                        'hebrew', 'undup', 'gnu', 'shrink', 'uniud']
@@ -227,6 +227,30 @@ class Filter(callbacks.Plugin):
             text = text.decode('utf8')
         irc.reply(self._rot13_encoder(text)[0])
     rot13 = wrap(rot13, ['text'])
+
+    @internationalizeDocstring
+    def lithp(self, irc, msg, args, text):
+        """<text>
+
+        Returns the lisping version of <text>
+        """
+        text = text.replace('sh', 'th')
+        text = text.replace('SH', 'TH')
+        text = text.replace('Sh', 'Th')
+        text = text.replace('ss', 'th')
+        text = text.replace('SS', 'TH')
+        text = text.replace('s', 'th')
+        text = text.replace('z', 'th')
+        text = text.replace('S', 'Th')
+        text = text.replace('Z', 'Th')
+        text = text.replace('x', 'kth')
+        text = text.replace('X', 'KTH')
+        text = text.replace('cce', 'kth')
+        text = text.replace('CCE', 'KTH')
+        text = text.replace('tion', 'thion')
+        text = text.replace('TION', 'THION')
+        irc.reply(text)
+    lithp = wrap(lithp, ['text'])
 
     _leettrans = utils.str.MultipleReplacer(dict(list(zip('oOaAeElBTiIts',
                                                      '004433187!1+5'))))
