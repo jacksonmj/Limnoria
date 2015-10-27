@@ -445,8 +445,7 @@ class Filter(callbacks.Plugin):
         if minisix.PY2:
             text = text.decode('utf-8')
         text = ircutils.stripColor(text)
-        colors = utils.iter.cycle(['05', '04', '07', '08', '09', '03', '11',
-                                   '10', '12', '02', '06', '13'])
+        colors = utils.iter.cycle(['04', '07', '08', '03', '10', '02', '06'])
         L = [self._color(c, fg=next(colors)) for c in text]
         if minisix.PY2:
             L = [c.encode('utf-8') for c in L]
