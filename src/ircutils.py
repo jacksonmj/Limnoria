@@ -45,6 +45,7 @@ import random
 import string
 import textwrap
 import functools
+import copy
 
 from . import utils
 from .utils import minisix
@@ -312,10 +313,10 @@ def underline(s):
     return '\x1F%s\x1F' % s
 
 # Definition of mircColors dictionary moved below because it became an IrcDict.
-def mircColor(s, fg=None, bg=None):
+def mircColorStart(fg=None, bg=None):
     """Returns s with the appropriate mIRC color codes applied."""
     if fg is None and bg is None:
-        return s
+        return '\x03'
     elif bg is None:
         if str(fg) in mircColors:
             fg = mircColors[str(fg)]
@@ -324,18 +325,24 @@ def mircColor(s, fg=None, bg=None):
         else:
             # Should not happen
             pass
-        return '\x03%s%s\x03' % (fg.zfill(2), s)
+        return '\x03%s' % (fg.zfill(2))
     elif fg is None:
         bg = mircColors[str(bg)]
         # According to the mirc color doc, a fg color MUST be specified if a
         # background color is specified.  So, we'll specify 00 (white) if the
         # user doesn't specify one.
-        return '\x0300,%s%s\x03' % (bg.zfill(2), s)
+        return '\x0300,%s' % (bg.zfill(2))
     else:
         fg = mircColors[str(fg)]
         bg = mircColors[str(bg)]
         # No need to zfill fg because the comma delimits.
-        return '\x03%s,%s%s\x03' % (fg, bg.zfill(2), s)
+        return '\x03%s,%s' % (fg, bg.zfill(2))
+
+def mircColor(s, fg=None, bg=None):
+    """Returns s with the appropriate mIRC color codes applied."""
+    if fg is None and bg is None:
+        return s
+    return '%s%s\x03' % (mircColorStart(fg, bg), s)
 
 def canonicalColor(s, bg=False, shift=0):
     """Assigns an (fg, bg) canonical color pair to a string based on its hash
@@ -386,7 +393,7 @@ def stripFormatting(s):
     s = stripItalic(s)
     return s.replace('\x0f', '').replace('\x0F', '')
 
-_containsFormattingRe = re.compile(r'[\x02\x03\x16\x1f]')
+_containsFormattingRe = re.compile(r'[\x02\x03\x16\x1d\x1f]')
 def formatWhois(irc, replies, caller='', channel='', command='whois'):
     """Returns a string describing the target of a WHOIS command.
 
@@ -503,6 +510,9 @@ def formatWhois(irc, replies, caller='', channel='', command='whois'):
                 (user, hostmask, identify, server, signoff)
     return s
 
+
+colorBarrier = '\x02\x02' # Or unicode ZWSP (\u200b)
+
 class FormatContext(object):
     def __init__(self):
         self.reset()
@@ -515,27 +525,62 @@ class FormatContext(object):
         self.reverse = False
         self.underline = False
 
-    def start(self, s):
-        """Given a string, starts all the formatters in this context."""
-        if self.bold:
-            s = '\x02' + s
-        if self.italic:
-            s = '\x1D' + s
-        if self.reverse:
-            s = '\x16' + s
-        if self.underline:
-            s = '\x1f' + s
-        if self.fg is not None or self.bg is not None:
-            s = mircColor(s, fg=self.fg, bg=self.bg)[:-1] # Remove \x03.
-        return s
+    def __eq__(self, other):
+        if not isinstance(other, FormatContext):
+            return False
+        if self.fg != other.fg or self.bg != other.bg:
+            return False
+        if self.bold != other.bold:
+            return False
+        if self.italic != other.italic:
+            return False
+        if self.reverse != other.reverse:
+            return False
+        if self.underline != other.underline:
+            return False
+        return True
 
-    def end(self, s):
+    def diffFrom(self, prevContext):
+        """Returns the formatting codes necessary to change the format from
+        prevContext to this context."""
+        if prevContext is None:
+            prevContext = FormatContext()
+        L = []
+
+        color = False
+        if self.fg != prevContext.fg or self.bg != prevContext.bg:
+            if (self.fg is None and prevContext.fg is not None) or \
+                (self.bg is None and prevContext.bg is not None):
+                # Need to change to a default color, so reset colors first
+                L.append('\x03')
+            L.append(mircColorStart(fg=self.fg, bg=self.bg))
+            color = True
+        if self.bold != prevContext.bold:
+            L.append('\x02')
+        if self.italic != prevContext.italic:
+            L.append('\x1D')
+        if self.reverse != prevContext.reverse:
+            L.append('\x16')
+        if self.underline != prevContext.underline:
+            L.append('\x1F')
+
+        if color and len(L)==1 and self.bg is None:
+            # Ensure that if the text following this format starts with a
+            # comma and digits, they are not falsely interpreted as part of
+            # the format.
+            L.append(colorBarrier)
+        return ''.join(L)
+
+    def start(self, s=''):
+        """Given a string, starts all the formatters in this context."""
+        return self.diffFrom(None) + s
+
+    def end(self, s=''):
         """Given a string, ends all the formatters in this context."""
-        if self.bold or self.reverse or \
-           self.fg or self.bg or self.underline:
-            # Should we individually end formatters?
-            s += '\x0f'
-        return s
+        return s + FormatContext().diffFrom(self)
+
+    def parse(self, formatCodes):
+        FormatParser(formatCodes).parse(self)
 
 class FormatParser(object):
     def __init__(self, s):
@@ -553,8 +598,9 @@ class FormatParser(object):
     def ungetChar(self, c):
         self.last = c
 
-    def parse(self):
-        context = FormatContext()
+    def parse(self, context=None):
+        if context is None:
+            context = FormatContext()
         c = self.getChar()
         while c:
             if c == '\x02':
@@ -599,6 +645,65 @@ class FormatParser(object):
             context.bg = self.getInt()
         else:
             self.ungetChar(c)
+
+
+TextFormat = FormatContext
+
+class FormattedTextChunk(object):
+    def __init__(self, text='', format=TextFormat()):
+        self.text = text
+        self.format = format
+
+    def __eq__(self, other):
+        if not isinstance(other, FormattedTextChunk):
+            return False
+        if self.text != other.text:
+            return False
+        if self.format != other.format:
+            return False
+        return True
+
+formatPattern = r'(?:\x03(?:\d{1,2},\d{1,2}|\d{1,2}|,\d{1,2}|)|[\x02\x1D\x16\x1F\x0F])'
+
+_formattedChunkRe = re.compile(
+    r'((?:^|{fmtcode}){fmtcode}*)({notformat})'.format(
+        fmtcode=formatPattern,
+        notformat=r'[^\x02\x03\x0F\x16\x1D\x1F]'
+    )
+)
+_formattedCharRe = re.compile(
+    r'({fmtcode}*)({notformat})'.format(
+        fmtcode=formatPattern,
+        notformat=r'[^\x02\x03\x0F\x16\x1D\x1F]'
+    )
+)
+
+class FormattedText(object):
+    def __init__(self, text):
+        self.matches = re.finditer(_formattedChunkRe, text)
+
+    def __iter__(self):
+        format = TextFormat()
+        for m in self.matches:
+            format.parse(m.group(1))
+            yield FormattedTextChunk(m.group(2), copy.copy(format))
+
+class FormattedChars(FormattedText):
+    def __init__(self, text):
+        self.matches = re.finditer(_formattedCharRe, text)
+
+_stripColorBarrierRe = re.compile(r'{b}([^,])'.format(b=colorBarrier))
+def joinFormattedChunks(chunks, separator=''):
+    def chunksToText(chunks):
+        format = TextFormat()
+        for chunk in chunks:
+            yield chunk.format.diffFrom(format) + chunk.text
+            format = chunk.format
+        yield format.end()
+    text = separator.join(chunksToText(chunks))
+    # strip unnecessary barriers
+    text = _stripColorBarrierRe.sub(r'\g<1>', text)
+    return text
 
 def wrap(s, length, break_on_hyphens = False, break_long_words = False):
     processed = []
