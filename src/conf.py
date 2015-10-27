@@ -307,7 +307,7 @@ def registerNetwork(name, password='', ssl=False, sasl_username='',
         _("""Determines what password will be used on %s.  Yes, we know that
         technically passwords are server-specific and not network-specific,
         but this is the best we can do right now.""") % name, private=True))
-    registryServers = registerGlobalValue(network, 'servers', Servers([],
+    registerGlobalValue(network, 'servers', Servers([],
         _("""Space-separated list of servers the bot will connect to for %s.
         Each will be tried in order, wrapping back to the first when the cycle
         is completed.""") % name))
@@ -732,6 +732,9 @@ registerGlobalValue(supybot.abuse.flood.command, 'maximum',
 registerGlobalValue(supybot.abuse.flood.command, 'punishment',
     registry.PositiveInteger(300, _("""Determines how many seconds the bot
     will ignore users who flood it with commands.""")))
+registerGlobalValue(supybot.abuse.flood.command, 'notify',
+    registry.Boolean(True, _("""Determines whether the bot will notify people
+    that they're being ignored for command flooding.""")))
 
 registerGlobalValue(supybot.abuse.flood.command, 'invalid',
     registry.Boolean(True, _("""Determines whether the bot will defend itself

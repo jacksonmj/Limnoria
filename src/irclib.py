@@ -42,7 +42,7 @@ except ImportError:
 from . import conf, ircdb, ircmsgs, ircutils, log, utils, world
 from .utils.str import rsplit
 from .utils.iter import chain
-from .utils.structures import queue, smallqueue, RingBuffer
+from .utils.structures import smallqueue, RingBuffer
 
 ###
 # The base class for a callback to be registered with an Irc object.  Shows
@@ -1029,7 +1029,7 @@ class Irc(IrcCommandDispatcher, log.Firewalled):
                     read())
                 authstring = base64.b64encode(
                     private_key.sign(base64.b64decode(msg.args[0].encode()))).decode('utf-8')
-            except (BadDigestError, OSError, ValueError) as e:
+            except (BadDigestError, OSError, ValueError):
                 authstring = "*"
 
             self.sendMsg(ircmsgs.IrcMsg(command='AUTHENTICATE', args=(authstring,)))
@@ -1091,8 +1091,13 @@ class Irc(IrcCommandDispatcher, log.Firewalled):
             # NOTE: Capabilities are requested in alphabetic order, because
             # sets are unordered, and their "order" is nondeterministic.
             # This is needed for the tests.
-            self.sendMsg(ircmsgs.IrcMsg(command='CAP',
-                args=('REQ', ' '.join(sorted(common_supported_capabilities)))))
+            if common_supported_capabilities:
+                caps = ' '.join(sorted(common_supported_capabilities))
+                self.sendMsg(ircmsgs.IrcMsg(command='CAP',
+                    args=('REQ', caps)))
+            else:
+                self.sendMsg(ircmsgs.IrcMsg(command='CAP',
+                    args=('END',)))
         else:
             log.warning('Bad CAP LS from server: %r', msg)
             return

@@ -82,8 +82,8 @@ conf.registerGlobalValue(Services, 'noJoinsUntilIdentified',
     you have a vhost that isn't set until you're identified, or if you're
     joining +r channels that won't allow you to join unless you identify.""")))
 conf.registerGlobalValue(Services, 'ghostDelay',
-    registry.PositiveInteger(60, _("""Determines how many seconds the bot will
-    wait between successive GHOST attempts.""")))
+    registry.NonNegativeInteger(60, _("""Determines how many seconds the bot will
+    wait between successive GHOST attempts. Set this to 0 to disable GHOST.""")))
 conf.registerGlobalValue(Services, 'NickServ',
     ValidNickOrEmptyString('NickServ', _("""Determines what nick the 'NickServ' service
     has.""")))

@@ -69,7 +69,35 @@ class RSSTestCase(ChannelPluginTestCase):
         finally:
             self.assertNotError('rss remove xkcd')
 
-    def testInitialAnnounce(self):
+    def testInitialAnnounceNewest(self):
+        old_open = feedparser._open_resource
+        feedparser._open_resource = constant(xkcd_new)
+        try:
+            with conf.supybot.plugins.RSS.initialAnnounceHeadlines.context(1):
+                with conf.supybot.plugins.RSS.sortFeedItems.context('newestFirst'):
+                    self.assertNotError('rss add xkcd http://xkcd.com/rss.xml')
+                    self.assertNotError('rss announce add xkcd')
+                    self.assertRegexp(' ', 'Snake Facts')
+        finally:
+            self._feedMsg('rss announce remove xkcd')
+            self._feedMsg('rss remove xkcd')
+            feedparser._open_resource = old_open
+
+    def testInitialAnnounceOldest(self):
+        old_open = feedparser._open_resource
+        feedparser._open_resource = constant(xkcd_new)
+        try:
+            with conf.supybot.plugins.RSS.initialAnnounceHeadlines.context(1):
+                with conf.supybot.plugins.RSS.sortFeedItems.context('oldestFirst'):
+                    self.assertNotError('rss add xkcd http://xkcd.com/rss.xml')
+                    self.assertNotError('rss announce add xkcd')
+                    self.assertRegexp(' ', 'Chaos')
+        finally:
+            self._feedMsg('rss announce remove xkcd')
+            self._feedMsg('rss remove xkcd')
+            feedparser._open_resource = old_open
+
+    def testNoInitialAnnounce(self):
         old_open = feedparser._open_resource
         feedparser._open_resource = constant(xkcd_old)
         try:
@@ -103,6 +131,25 @@ class RSSTestCase(ChannelPluginTestCase):
             self._feedMsg('rss remove xkcd')
             feedparser._open_resource = old_open
 
+    def testAnnounceAnonymous(self):
+        old_open = feedparser._open_resource
+        feedparser._open_resource = constant(xkcd_old)
+        try:
+            self.assertNotError('rss announce add http://xkcd.com/rss.xml')
+            self.assertNotError(' ')
+            with conf.supybot.plugins.RSS.waitPeriod.context(1):
+                time.sleep(1.1)
+                self.assertNoResponse(' ')
+                self.assertNoResponse(' ')
+                feedparser._open_resource = constant(xkcd_new)
+                self.assertNoResponse(' ')
+                time.sleep(1.1)
+                self.assertRegexp(' ', 'Chaos')
+        finally:
+            self._feedMsg('rss announce remove http://xkcd.com/rss.xml')
+            self._feedMsg('rss remove http://xkcd.com/rss.xml')
+            feedparser._open_resource = old_open
+
     def testAnnounceReload(self):
         old_open = feedparser._open_resource
         feedparser._open_resource = constant(xkcd_old)
@@ -133,6 +180,34 @@ class RSSTestCase(ChannelPluginTestCase):
         finally:
             self._feedMsg('rss remove xkcd')
             self._feedMsg('rss remove xkcdsec')
+            feedparser._open_resource = old_open
+
+    def testFeedSpecificWaitPeriod(self):
+        old_open = feedparser._open_resource
+        feedparser._open_resource = constant(xkcd_old)
+        try:
+            self.assertNotError('rss add xkcd1 http://xkcd.com/rss.xml')
+            self.assertNotError('rss announce add xkcd1')
+            self.assertNotError('rss add xkcd2 http://xkcd.com/rss.xml&foo')
+            self.assertNotError('rss announce add xkcd2')
+            self.assertNotError(' ')
+            self.assertNotError(' ')
+            with conf.supybot.plugins.RSS.feeds.xkcd1.waitPeriod.context(1):
+                time.sleep(1.1)
+                self.assertNoResponse(' ')
+                self.assertNoResponse(' ')
+                feedparser._open_resource = constant(xkcd_new)
+                self.assertNoResponse(' ')
+                time.sleep(1.1)
+                self.assertRegexp(' ', 'xkcd1.*Chaos')
+                self.assertNoResponse(' ')
+                time.sleep(1.1)
+                self.assertNoResponse(' ')
+        finally:
+            self._feedMsg('rss announce remove xkcd1')
+            self._feedMsg('rss remove xkcd1')
+            self._feedMsg('rss announce remove xkcd2')
+            self._feedMsg('rss remove xkcd2')
             feedparser._open_resource = old_open
 
     if network:

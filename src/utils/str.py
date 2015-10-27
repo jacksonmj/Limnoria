@@ -34,13 +34,12 @@ Simple utility functions related to strings.
 """
 
 import re
-import sys
 import time
 import string
 import textwrap
 
 from . import minisix
-from .iter import all, any
+from .iter import any
 from .structures import TwoWayDictionary
 
 from . import internationalization as _
@@ -295,7 +294,10 @@ def perlVariableSubstitute(vars, text):
             if callable(x):
                 return x()
             else:
-                return str(x)
+                try:
+                    return str(x)
+                except UnicodeEncodeError: # Python 2
+                    return str(x).encode('utf8')
         except KeyError:
             if braced:
                 return '${%s}' % braced

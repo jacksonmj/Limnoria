@@ -123,19 +123,31 @@ class Feed:
         f = types.MethodType(f, plugin)
         return f
 
+_sort_parameters = {
+        'oldestFirst':   (('published_parsed', 'updated_parsed'), False),
+        'newestFirst':   (('published_parsed', 'updated_parsed'), True),
+        'outdatedFirst': (('updated_parsed', 'published_parsed'), False),
+        'updatedFirst':  (('updated_parsed', 'published_parsed'), True),
+        }
+def _sort_arguments(order):
+    (fields, reverse) = _sort_parameters[order]
+    def key(entry):
+        for field in fields:
+            if field in entry:
+                return entry[field]
+        raise KeyError('No date field in entry.')
+    return (key, reverse)
+
 def sort_feed_items(items, order):
     """Return feed items, sorted according to sortFeedItems."""
-    if order not in ['oldestFirst', 'newestFirst']:
+    if order == 'asInFeed':
         return items
-    if order == 'oldestFirst':
-        reverse = False
-    if order == 'newestFirst':
-        reverse = True
+    (key, reverse) = _sort_arguments(order)
     try:
-        sitems = sorted(items, key=lambda i: i['published'], reverse=reverse)
+        sitems = sorted(items, key=key, reverse=reverse)
     except KeyError:
         # feedparser normalizes required timestamp fields in ATOM and RSS
-        # to the "published" field. Feeds missing it are unsortable by date.
+        # to the "published"/"updated" fields. Feeds missing it are unsortable by date.
         return items
     return sitems
 
@@ -217,6 +229,10 @@ class RSS(callbacks.Plugin):
         conf.registerChannelValue(feed_group, 'announceFormat',
                 registry.String('', _("""Feed-specific announce format.
                 Defaults to supybot.plugins.RSS.announceFormat if empty.""")))
+        conf.registerGlobalValue(feed_group, 'waitPeriod',
+                registry.NonNegativeInteger(0, _("""If set to a non-zero
+                value, overrides supybot.plugins.RSS.waitPeriod for this
+                particular feed.""")))
 
     def register_feed(self, name, url, initial,
             plugin_is_loading, announced=[]):
@@ -261,7 +277,12 @@ class RSS(callbacks.Plugin):
 
     def is_expired(self, feed):
         assert feed
-        event_horizon = time.time() - self.registryValue('waitPeriod')
+        period = self.registryValue('waitPeriod')
+        if feed.name != feed.url: # Named feed
+            specific_period = self.registryValue('feeds.%s.waitPeriod' % feed.name)
+            if specific_period:
+                period = specific_period
+        event_horizon = time.time() - period
         return feed.last_update < event_horizon
 
     ###############
@@ -383,7 +404,11 @@ class RSS(callbacks.Plugin):
     def announce_entry(self, irc, channel, feed, entry):
         if self.should_send_entry(channel, entry):
             s = self.format_entry(channel, feed, entry, True)
-            irc.queueMsg(ircmsgs.privmsg(channel, s))
+            if self.registryValue('notice', channel):
+                m = ircmsgs.notice(channel, s)
+            else:
+                m = ircmsgs.privmsg(channel, s)
+            irc.queueMsg(m)
 
 
     ##########
@@ -440,7 +465,8 @@ class RSS(callbacks.Plugin):
             message isn't sent in the channel itself.
             """
             plugin = irc.getCallback('RSS')
-            invalid_feeds = [x for x in feeds if not plugin.get_feed(x)]
+            invalid_feeds = [x for x in feeds if not plugin.get_feed(x)
+                             and not utils.web.urlRe.match(x)]
             if invalid_feeds:
                 irc.error(format(_('These feeds are unknown: %L'),
                     invalid_feeds), Raise=True)
@@ -452,6 +478,10 @@ class RSS(callbacks.Plugin):
             irc.replySuccess()
             for name in feeds:
                 feed = plugin.get_feed(name)
+                if not feed:
+                    plugin.register_feed_config(name, name)
+                    plugin.register_feed(name, name, True, False)
+                    feed = plugin.get_feed(name)
                 plugin.announce_feed(feed, True)
         add = wrap(add, [('checkChannelCapability', 'op'),
                          many(first('url', 'feedName'))])
