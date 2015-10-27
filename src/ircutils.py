@@ -511,6 +511,7 @@ class FormatContext(object):
         self.fg = None
         self.bg = None
         self.bold = False
+        self.italic = False
         self.reverse = False
         self.underline = False
 
@@ -518,6 +519,8 @@ class FormatContext(object):
         """Given a string, starts all the formatters in this context."""
         if self.bold:
             s = '\x02' + s
+        if self.italic:
+            s = '\x1D' + s
         if self.reverse:
             s = '\x16' + s
         if self.underline:
@@ -560,6 +563,8 @@ class FormatParser(object):
                 context.reverse = not context.reverse
             elif c == '\x1f':
                 context.underline = not context.underline
+            elif c == '\x1D':
+                context.italic = not context.italic
             elif c == '\x0f':
                 context.reset()
             elif c == '\x03':
