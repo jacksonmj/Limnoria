@@ -1285,6 +1285,9 @@ class Commands(BasePlugin, SynchronizedAndFirewalled):
         except (SyntaxError, Error) as e:
             self.log.debug('Error return: %s', utils.exnToString(e))
             irc.error(str(e))
+        except MemoryError as e:
+            self.log.warning('Out of memory: %s.', utils.exnToString(e))
+            irc.error('Out of memory')
         except Exception as e:
             self.log.exception('Uncaught exception in %s.', command)
             if conf.supybot.reply.error.detailed():
