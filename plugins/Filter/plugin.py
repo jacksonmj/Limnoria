@@ -63,7 +63,7 @@ class Filter(callbacks.Plugin):
         self.outFilters = ircutils.IrcDict()
 
     def outFilter(self, irc, msg):
-        if msg.command == 'PRIVMSG':
+        if msg.command == 'PRIVMSG' or msg.command == 'NOTICE':
             if msg.args[0] in self.outFilters:
                 if ircmsgs.isAction(msg):
                     s = ircmsgs.unAction(msg)
