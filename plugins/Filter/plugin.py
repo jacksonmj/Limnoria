@@ -737,6 +737,7 @@ class Filter(callbacks.Plugin):
     '^': '\u2335', 'n': '',      '~': '~',
     '_': '\u203e', 'o': 'o',
     }
+    _uniudMapRev = dict([(y, x) for (x, y) in _uniudMap.items()])
 
     @internationalizeDocstring
     def uniud(self, irc, msg, args, text):
@@ -746,6 +747,7 @@ class Filter(callbacks.Plugin):
         printable characters.
         """
         turned = []
+        text = text.rstrip(' \x02')
         chars = list(ircutils.FormattedChars(text))
         tlen = 0
         for c in chars:
@@ -753,6 +755,10 @@ class Filter(callbacks.Plugin):
                 c.text = self._uniudMap[c.text]
                 if not len(c.text):
                     c.text = '\ufffd'
+                turned.append(c)
+                tlen += 1
+            elif len(c.text) and c.text in self._uniudMapRev:
+                c.text = self._uniudMapRev[c.text]
                 turned.append(c)
                 tlen += 1
             elif c.text == '\t':

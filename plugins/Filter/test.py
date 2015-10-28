@@ -178,4 +178,7 @@ class FilterTest(ChannelPluginTestCase):
         self.assertResponse('shrink internationalization, localization',
                             'i18n, l10n')
 
+    def testUniud(self):
+        self.assertResponse('uniud [uniud foo bar baz]', 'foo bar baz \x02 \x02')
+
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:
