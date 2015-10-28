@@ -62,6 +62,11 @@ class Filter(callbacks.Plugin):
         self.__parent.__init__(irc)
         self.outFilters = ircutils.IrcDict()
 
+    def _limitLength(self, text):
+        if len(text)>600:
+            text = text[0:600]
+        return text
+
     def outFilter(self, irc, msg):
         if msg.command == 'PRIVMSG' or msg.command == 'NOTICE':
             if msg.args[0] in self.outFilters:
@@ -152,6 +157,7 @@ class Filter(callbacks.Plugin):
 
         Returns the binary representation of <text>.
         """
+        text = self._limitLength(text)
         L = []
         if minisix.PY3:
             if isinstance(text, str):
@@ -390,6 +396,7 @@ class Filter(callbacks.Plugin):
 
         Gives the Morse code equivalent of a given string.
         """
+        text = self._limitLength(text)
         chars = list(ircutils.FormattedChars(text.upper()))
         for c in chars:
             c.text = self._morseCode.get(c.text, c.text)
@@ -648,6 +655,7 @@ class Filter(callbacks.Plugin):
 
         Returns <text>, phonetically spelled out.
         """
+        text = self._limitLength(text)
         d = {}
         if self.registryValue('spellit.replaceLetters'):
             d.update(self._spellLetters)
