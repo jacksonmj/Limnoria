@@ -137,11 +137,12 @@ class Filter(callbacks.Plugin):
 
         Returns <text>, with all consecutive duplicated letters removed.
         """
-        L = [text[0]]
-        for c in text:
+        chars = list(ircutils.FormattedChars(text))
+        L = [chars[0]]
+        for c in chars:
             if c != L[-1]:
                 L.append(c)
-        irc.reply(''.join(L))
+        irc.reply(ircutils.joinFormattedChunks(L))
     undup = wrap(undup, ['text'])
 
     @internationalizeDocstring
@@ -388,10 +389,10 @@ class Filter(callbacks.Plugin):
 
         Gives the Morse code equivalent of a given string.
         """
-        L = []
-        for c in text.upper():
-            L.append(self._morseCode.get(c, c))
-        irc.reply(' '.join(L))
+        chars = list(ircutils.FormattedChars(text.upper()))
+        for c in chars:
+            c.text = self._morseCode.get(c.text, c.text)
+        irc.reply(ircutils.joinFormattedChunks(chars, ' '))
     morse = wrap(morse, ['text'])
 
     @internationalizeDocstring
@@ -400,7 +401,8 @@ class Filter(callbacks.Plugin):
 
         Reverses <text>.
         """
-        irc.reply(text[::-1])
+        chars = list(ircutils.FormattedChars(text))
+        irc.reply(ircutils.joinFormattedChunks(chars[::-1]))
     reverse = wrap(reverse, ['text'])
 
     @internationalizeDocstring
@@ -429,11 +431,13 @@ class Filter(callbacks.Plugin):
         """
         if minisix.PY2:
             text = text.decode('utf-8')
-        text = ircutils.stripColor(text)
-        L = [self._color(c) for c in text]
+        chars = list(ircutils.FormattedChars(text))
+        for c in chars:
+            c.format.fg = random.randint(2, 15)
+        text = ircutils.joinFormattedChunks(chars)
         if minisix.PY2:
-            L = [c.encode('utf-8') for c in L]
-        irc.reply('%s%s' % (''.join(L), '\x03'))
+            text = text.encode('utf-8')
+        irc.reply(text)
     colorize = wrap(colorize, ['text'])
 
     @internationalizeDocstring
@@ -444,12 +448,14 @@ class Filter(callbacks.Plugin):
         """
         if minisix.PY2:
             text = text.decode('utf-8')
-        text = ircutils.stripColor(text)
+        chars = list(ircutils.FormattedChars(text))
         colors = utils.iter.cycle(['04', '07', '08', '03', '10', '02', '06'])
-        L = [self._color(c, fg=next(colors)) for c in text]
+        for c in chars:
+            c.format.fg = next(colors)
+        text = ircutils.joinFormattedChunks(chars)
         if minisix.PY2:
-            L = [c.encode('utf-8') for c in L]
-        irc.reply(''.join(L) + '\x03')
+            text = text.encode('utf-8')
+        irc.reply(text)
     rainbow = wrap(rainbow, ['text'])
 
     @internationalizeDocstring
@@ -740,22 +746,24 @@ class Filter(callbacks.Plugin):
         printable characters.
         """
         turned = []
+        chars = list(ircutils.FormattedChars(text))
         tlen = 0
-        for c in text:
-            if c in self._uniudMap:
-                tmp = self._uniudMap[c]
-                if not len(tmp):
-                    tmp = '\ufffd'
-                turned.append(tmp)
-                tlen += 1
-            elif c == '\t':
-                tablen = 8 - tlen % 8
-                turned.append(' ' * tablen)
-                tlen += tablen
-            elif ord(c) >= 32:
+        for c in chars:
+            if c.text in self._uniudMap:
+                c.text = self._uniudMap[c.text]
+                if not len(c.text):
+                    c.text = '\ufffd'
                 turned.append(c)
                 tlen += 1
-        s = '%s \x02 \x02' % ''.join(reversed(turned))
+            elif c.text == '\t':
+                tablen = 8 - tlen % 8
+                c.text = ' ' * tablen
+                turned.append(c)
+                tlen += tablen
+            elif ord(c.text) >= 32:
+                turned.append(c)
+                tlen += 1
+        s = '%s \x02 \x02' % ircutils.joinFormattedChunks(reversed(turned))
         irc.reply(s)
     uniud = wrap(uniud, ['text'])
 Filter = internationalizeDocstring(Filter)

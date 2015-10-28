@@ -121,7 +121,7 @@ class FilterTest(ChannelPluginTestCase):
         # Make sure we're closing colorize with an 'end color' marker
         self.assertRegexp('colorize foobar', r'\x03$')
 
-    _strings = ('Supybot pwns!', '123456', 'A string with \x02bold\x15')
+    _strings = ('Supybot pwns!', '123456', 'A string with \x02bold\x02')
     def testColorstrip(self):
         for s in self._strings:
             self.assertResponse('stripcolor [colorize %s]' % s, s)
