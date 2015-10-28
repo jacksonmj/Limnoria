@@ -41,6 +41,18 @@ import supybot.callbacks as callbacks
 from supybot.i18n import PluginInternationalization, internationalizeDocstring
 _ = PluginInternationalization('BadWords')
 
+class PatternCacheEntry(object):
+    def __init__(self, lastModified, pattern, requireWordBoundaries):
+        self.lastModified = lastModified
+        self.pattern = pattern
+        self.requireWordBoundaries = requireWordBoundaries
+    def isValid(self, sourceModified, requireWordBoundaries):
+        if self.lastModified < sourceModified:
+            return False
+        if self.requireWordBoundaries != requireWordBoundaries:
+            return False
+        return True
+
 class BadWords(callbacks.Privmsg):
     """Maintains a list of words that the bot is not allowed to say.
     Can also be used to kick people that say these words, if the bot
@@ -51,8 +63,9 @@ class BadWords(callbacks.Privmsg):
         # This is so we can not filter certain outgoing messages (like list,
         # which would be kinda useless if it were filtered).
         self.filtering = True
-        self.lastModified = 0
         self.words = conf.supybot.plugins.BadWords.words
+        self.regexes = conf.supybot.plugins.BadWords.regexes
+        self.patternCache = {}
 
     def callCommand(self, name, irc, msg, *args, **kwargs):
         if ircdb.checkCapability(msg.prefix, 'admin'):
@@ -67,16 +80,19 @@ class BadWords(callbacks.Privmsg):
         elif replaceMethod == 'nastyCharacters':
             return self.registryValue('nastyChars')[:len(m.group(1))]
 
+    def filterCount(self):
+        return len(self.words()) + len(self.regexes())
+
     def inFilter(self, irc, msg):
         self.filtering = True
         # We need to check for bad words here rather than in doPrivmsg because
         # messages don't get to doPrivmsg if the user is ignored.
-        if msg.command == 'PRIVMSG' and self.words():
+        if msg.command == 'PRIVMSG' and self.filterCount():
             channel = msg.args[0]
-            self.updateRegexp(channel)
+            regexp = self.getRegexp(channel)
             s = ircutils.stripFormatting(msg.args[1])
             if ircutils.isChannel(channel) and self.registryValue('kick', channel):
-                if self.regexp.search(s):
+                if regexp.search(s):
                     c = irc.state.channels[channel]
                     cap = ircdb.makeChannelCapability(channel, 'op')
                     if c.isHalfopPlus(irc.nick):
@@ -93,28 +109,40 @@ class BadWords(callbacks.Privmsg):
                                          msg.nick, channel)
         return msg
 
-    def updateRegexp(self, channel):
-        if self.lastModified < self.words.lastModified:
-            self.makeRegexp(self.words(), channel)
-            self.lastModified = time.time()
+    def getRegexp(self, channel):
+        filterModified = max(self.words.lastModified, self.regexes.lastModified)
+        requireWordBoundaries = self.registryValue('requireWordBoundaries', channel)
+        if channel in self.patternCache:
+            p = self.patternCache[channel]
+            if p.isValid(filterModified, requireWordBoundaries):
+                return p.pattern
+        pattern = self.makeRegexp(self.words(), self.regexes(), requireWordBoundaries)
+        self.patternCache[channel] = PatternCacheEntry(filterModified, pattern, requireWordBoundaries)
+        return pattern
 
     def outFilter(self, irc, msg):
-        if self.filtering and msg.command == 'PRIVMSG' and self.words():
+        if self.filtering and msg.command == 'PRIVMSG' and self.filterCount():
             channel = msg.args[0]
-            self.updateRegexp(channel)
+            regexp = self.getRegexp(channel)
             s = msg.args[1]
             if self.registryValue('stripFormatting'):
                 s = ircutils.stripFormatting(s)
-            t = self.regexp.sub(self.sub, s)
+            t = regexp.sub(self.sub, s)
             if t != s:
                 msg = ircmsgs.privmsg(msg.args[0], t, msg=msg)
         return msg
 
-    def makeRegexp(self, iterable, channel):
-        s = '(%s)' % '|'.join(map(re.escape, iterable))
-        if self.registryValue('requireWordBoundaries', channel):
-            s = r'\b%s\b' % s
-        self.regexp = re.compile(s, re.I)
+    def makeRegexp(self, words, regexes, requireWordBoundaries):
+        patterns = []
+        if len(words):
+            wordPatterns = '|'.join(map(re.escape, words))
+            if requireWordBoundaries:
+                wordPatterns = r'\b(?:%s)\b' % wordPatterns
+            patterns.append(wordPatterns)
+        if len(regexes):
+            patterns.append('|'.join(regexes))
+        s = '(%s)' % ('|'.join(patterns))
+        return re.compile(s, re.I)
 
     @internationalizeDocstring
     def list(self, irc, msg, args):
@@ -122,7 +150,7 @@ class BadWords(callbacks.Privmsg):
 
         Returns the list of words being censored.
         """
-        L = list(self.words())
+        L = list(self.words()) + list(self.regexes())
         if L:
             self.filtering = False
             utils.sortBy(str.lower, L)
@@ -156,6 +184,28 @@ class BadWords(callbacks.Privmsg):
         irc.replySuccess()
     remove = wrap(remove, ['admin', many('something')])
 
+    def addregex(self, irc, msg, args, words):
+        """<regex> [<regex> ...]
+
+        Adds all <regex>es to the list of regexes the bot isn't to say.
+        """
+        set = self.regexes()
+        set.update(words)
+        self.regexes.setValue(set)
+        irc.replySuccess()
+    addregex = wrap(addregex, ['admin', many('something')])
+
+    def removeregex(self, irc, msg, args, words):
+        """<regex> [<regex> ...]
+
+        Removes all <regex>es from the list of regexes the bot isn't to say.
+        """
+        set = self.regexes()
+        for word in words:
+            set.discard(word)
+        self.regexes.setValue(set)
+        irc.replySuccess()
+    removeregex = wrap(removeregex, ['admin', many('something')])
 
 Class = BadWords
 

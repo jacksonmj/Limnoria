@@ -705,12 +705,28 @@ class CommaSeparatedListOfStrings(SeparatedListOf):
         return re.split(r'\s*,\s*', s)
     joiner = ', '.join
 
-class CommaSeparatedSetOfStrings(SeparatedListOf):
+class CommaSeparatedSetOfStrings(CommaSeparatedListOfStrings):
     List = set
+
+class ListOfStrings(SeparatedListOf):
     Value = String
     def splitter(self, s):
-        return re.split(r'\s*,\s*', s)
-    joiner = ', '.join
+        try:
+            return json.loads(s)
+        except:
+            return []
+
+    def joiner(self, L):
+        return json.dumps(list(L))
+
+    def __str__(self):
+        values = self()
+        if self.sorted:
+            values = sorted(values)
+        return self.joiner(values)
+
+class SetOfStrings(ListOfStrings):
+    List = set
 
 class TemplatedString(String):
     requiredTemplates = []
