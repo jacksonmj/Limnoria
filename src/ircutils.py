@@ -540,6 +540,21 @@ class FormatContext(object):
             return False
         return True
 
+    def spaceEqual(self, other):
+        """Return true if, when applied to whitespace, the <self> format
+        looks the same as <other>."""
+        if not isinstance(other, FormatContext):
+            return False
+        if self.bg != other.bg:
+            return False
+        if self.reverse != other.reverse:
+            return False
+        if self.underline != other.underline:
+            return False
+        if self.fg != other.fg and self.underline:
+            return False
+        return True
+
     def diffFrom(self, prevContext):
         """Returns the formatting codes necessary to change the format from
         prevContext to this context."""
@@ -553,7 +568,8 @@ class FormatContext(object):
                 (self.bg is None and prevContext.bg is not None):
                 # Need to change to a default color, so reset colors first
                 L.append('\x03')
-            L.append(mircColorStart(fg=self.fg, bg=self.bg))
+            if self.fg is not None or self.bg is not None:
+                L.append(mircColorStart(fg=self.fg, bg=self.bg))
             color = True
         if self.bold != prevContext.bold:
             L.append('\x02')
@@ -697,8 +713,11 @@ def joinFormattedChunks(chunks, separator=''):
     def chunksToText(chunks):
         format = TextFormat()
         for chunk in chunks:
-            yield chunk.format.diffFrom(format) + chunk.text
-            format = chunk.format
+            if chunk.text.isspace() and format.spaceEqual(chunk.format):
+                yield chunk.text
+            else:
+                yield chunk.format.diffFrom(format) + chunk.text
+                format = chunk.format
         yield format.end()
     text = separator.join(chunksToText(chunks))
     # strip unnecessary barriers
