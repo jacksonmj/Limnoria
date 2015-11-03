@@ -513,6 +513,13 @@ def formatWhois(irc, replies, caller='', channel='', command='whois'):
 
 colorBarrier = '\x02\x02' # Or unicode ZWSP (\u200b)
 
+# Handling of reverse video by clients is annoyingly varied:
+#  xchat: reverse code swaps current fg and bg, fg colour code inside reverse changes reverse fg and non-reverse bg
+#  irssi: reverse code swaps current fg and bg, fg colour code inside reverse changes reverse bg and non-reverse fg
+#  Konversation: reverse text does not display colours. reverse fg=default bg, reverse bg=default fg. fg colour code inside reverse changes non-reverse fg.
+
+# This code follows the xchat interpretation, and generate a colour code after reverse-off in order to partially compensate for the differences
+
 class FormatContext(object):
     def __init__(self):
         self.reset()
@@ -522,7 +529,7 @@ class FormatContext(object):
         self.bg = None
         self.bold = False
         self.italic = False
-        self.reverse = False
+        self._reverse = False
         self.underline = False
 
     def __eq__(self, other):
@@ -563,9 +570,13 @@ class FormatContext(object):
         L = []
 
         color = False
-        if self.fg != prevContext.fg or self.bg != prevContext.bg:
+        reverseOff = not self.reverse and prevContext.reverse
+        if self.reverse != prevContext.reverse:
+            L.append('\x16')
+        if self.fg != prevContext.fg or self.bg != prevContext.bg or reverseOff:
             if (self.fg is None and prevContext.fg is not None) or \
-                (self.bg is None and prevContext.bg is not None):
+              (self.bg is None and prevContext.bg is not None) or \
+              (reverseOff and (self.fg is None or self.bg is None)):
                 # Need to change to a default color, so reset colors first
                 L.append('\x03')
             if self.fg is not None or self.bg is not None:
@@ -575,12 +586,10 @@ class FormatContext(object):
             L.append('\x02')
         if self.italic != prevContext.italic:
             L.append('\x1D')
-        if self.reverse != prevContext.reverse:
-            L.append('\x16')
         if self.underline != prevContext.underline:
             L.append('\x1F')
 
-        if color and len(L)==1 and self.bg is None:
+        if color and len(L) and '\x03' in L[-1] and self.bg is None:
             # Ensure that if the text following this format starts with a
             # comma and digits, they are not falsely interpreted as part of
             # the format.
@@ -594,6 +603,30 @@ class FormatContext(object):
     def end(self, s=''):
         """Given a string, ends all the formatters in this context."""
         return s + FormatContext().diffFrom(self)
+
+    def toggleBold(self):
+        self.bold = not self.bold
+    def toggleItalic(self):
+        self.italic = not self.italic
+    def toggleUnderline(self):
+        self.underline = not self.underline
+
+    def _getReverse(self):
+        return self._reverse
+    def _setReverse(self, newVal):
+        if self._reverse != newVal:
+            self.toggleReverse()
+    reverse = property(_getReverse, _setReverse)
+    def toggleReverse(self):
+        self._reverse = not self._reverse
+        self.fg,self.bg = self.bg,self.fg
+
+    def setMainColor(self, color):
+        """Set bg=color if reversed, otherwise set fg=color."""
+        if self._reverse:
+            self.bg = color
+        else:
+            self.fg = color
 
     def parse(self, formatCodes):
         FormatParser(formatCodes).parse(self)
@@ -620,13 +653,13 @@ class FormatParser(object):
         c = self.getChar()
         while c:
             if c == '\x02':
-                context.bold = not context.bold
+                context.toggleBold()
             elif c == '\x16':
-                context.reverse = not context.reverse
+                context.toggleReverse()
             elif c == '\x1f':
-                context.underline = not context.underline
+                context.toggleUnderline()
             elif c == '\x1D':
-                context.italic = not context.italic
+                context.toggleItalic()
             elif c == '\x0f':
                 context.reset()
             elif c == '\x03':
