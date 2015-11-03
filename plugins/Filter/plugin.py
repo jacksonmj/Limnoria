@@ -458,8 +458,11 @@ class Filter(callbacks.Plugin):
             text = text.decode('utf-8')
         chars = list(ircutils.FormattedChars(text))
         colors = utils.iter.cycle(['04', '07', '08', '03', '10', '02', '06'])
+        color = '04'
         for c in chars:
-            c.format.fg = next(colors)
+            if not c.text.isspace():
+                color = next(colors)
+            c.format.fg = color
         text = ircutils.joinFormattedChunks(chars)
         if minisix.PY2:
             text = text.encode('utf-8')
