@@ -441,7 +441,7 @@ class Filter(callbacks.Plugin):
             text = text.decode('utf-8')
         chars = list(ircutils.FormattedChars(text))
         for c in chars:
-            c.format.fg = random.randint(2, 15)
+            c.format.setMainColor(random.randint(2, 15))
         text = ircutils.joinFormattedChunks(chars)
         if minisix.PY2:
             text = text.encode('utf-8')
@@ -462,7 +462,7 @@ class Filter(callbacks.Plugin):
         for c in chars:
             if not c.text.isspace():
                 color = next(colors)
-            c.format.fg = color
+            c.format.setMainColor(color)
         text = ircutils.joinFormattedChunks(chars)
         if minisix.PY2:
             text = text.encode('utf-8')
